@@ -1,0 +1,139 @@
+﻿<#@ template debug="false" hostspecific="true" language="C#" #>
+<#@ output extension=".cs" #>
+<#@ include file="..\..\CommonTableTemplate\CommonTableTemplate.tt"#>
+<#
+    string EntityKeyParameter = "entityId";
+    string EntityName = "Entity";
+    string EntityNamePlural = "Entities";
+    string EntityTablename = "Entity";
+
+    Table table = database.Tables[EntityTablename];
+    table.Refresh();
+#>
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using <#= WebAPIModelsNamespace #>;
+using EDM = <#= EntityDataModelNamespace #>;
+
+namespace <#= WebAPIRepositoriesNamespace #>
+{
+    public class <#= EntityName #>Repository : RepositoryBase, I<#= EntityName #>Repository
+    {
+        // GetAll
+        public IEnumerable<<#= EntityName #>> GetAll() {
+            var  edm<#= EntityNamePlural #> = default(IEnumerable<EDM.<#= EntityName #>>);
+
+            edm<#= EntityNamePlural #> = _dbContext.<#= EntityNamePlural #>
+                .OrderBy(edm => edm.Id);
+            IEnumerable<<#= EntityName #>> m<#= EntityNamePlural #> = <#= EntityName #>Mapper.MapAllEDMtoDM(edm<#= EntityNamePlural #>);
+
+            return m<#= EntityNamePlural #>;
+        }
+
+        // GetById
+        public <#= EntityName #> GetById(int id) {
+            EDM.<#= EntityName #> edm<#= EntityName #> = default(EDM.<#= EntityName #>);
+
+            edm<#= EntityName #> = _dbContext.<#= EntityNamePlural #>
+               .Where(edm => edm.Id == id).FirstOrDefault();
+
+            return <#= EntityName #>Mapper.MapOneEDMtoDM(edm<#= EntityName #>);
+        }
+
+        // Create a new <#= EntityName #>
+        public <#= EntityName #> Create(<#= EntityName #> m<#= EntityName #>) {
+            var result = 0;
+
+            EDM.<#= EntityName #> edm<#= EntityName #> = <#= EntityName #>Mapper.MapOneDMtoEDM(m<#= EntityName #>);
+
+            try {
+                this._dbContext.<#= EntityNamePlural #>.Add(edm<#= EntityName #>);
+                result = this._dbContext.SaveChanges();
+
+                // DbContext sets Id to the new Identity value.
+                m<#= EntityName #>.Id = edm<#= EntityName #>.Id;
+            }
+            catch (System.Data.UpdateException ex) {
+                if (ex.InnerException != null && ex.InnerException is System.Data.SqlClient.SqlException
+                   && ((System.Data.SqlClient.SqlException)ex.InnerException).ErrorCode == 8152)
+                    throw ex.InnerException;
+                else
+                    throw ex;
+            }
+
+            return m<#= EntityName #>;
+        }
+
+        // Update an existing <#= EntityName #>
+        public int Update(<#= EntityName #> m<#= EntityName #>) {
+            var result = 0;
+            EDM.<#= EntityName #> edmLoaded<#= EntityName #> = null;
+            EDM.<#= EntityName #> edm<#= EntityName #> = <#= EntityName #>Mapper.MapOneDMtoEDM(m<#= EntityName #>);
+
+            try {
+                // Load object into context (entity framework) 
+                edmLoaded<#= EntityName #> = _dbContext.<#= EntityNamePlural #>.Where(edm => edm.Id == m<#= EntityName #>.Id).FirstOrDefault();
+
+                if (edmLoaded<#= EntityName #> == null) { //not found?
+                    throw new Exception("<#= EntityName #> not found to update");
+                }
+                else {
+                    // Update
+                    _dbContext.Entry(edmLoaded<#= EntityName #>).CurrentValues.SetValues(edm<#= EntityName #>);
+                }
+
+                // Save in data access (entity framework)
+                result = this._dbContext.SaveChanges();
+            }
+            catch (System.Data.UpdateException ex) {
+                if (ex.InnerException != null && ex.InnerException is System.Data.SqlClient.SqlException
+                   && ((System.Data.SqlClient.SqlException)ex.InnerException).ErrorCode == 8152)
+                    throw ex.InnerException;
+                else
+                    throw ex;
+            }
+
+            return result;
+        }
+
+        // Delete an existing <#= EntityName #>
+        public int Delete(int id) {
+            var result = 0;
+            EDM.<#= EntityName #> edmLoaded<#= EntityName #> = null;
+
+            try {
+                // Load object into context (entity framework) 
+                edmLoaded<#= EntityName #> = _dbContext.<#= EntityNamePlural #>.Where(edm => edm.Id == id).FirstOrDefault();
+
+                // Modify the context
+                if (edmLoaded<#= EntityName #> == null) { //not found?
+                    throw new Exception("<#= EntityName #> not found to delete");
+                }
+                else {
+                    // Delete
+                    this._dbContext.<#= EntityNamePlural #>.Remove(edmLoaded<#= EntityName #>);
+                }
+
+                // Save in data access (entity framework)
+                result = this._dbContext.SaveChanges();
+            }
+            catch (System.Data.UpdateException ex) {
+                if (ex.InnerException != null && ex.InnerException is System.Data.SqlClient.SqlException
+                   && ((System.Data.SqlClient.SqlException)ex.InnerException).ErrorCode == 8152)
+                    throw ex.InnerException;
+                else
+                    throw ex;
+            }
+
+            return result;
+        }
+
+        public void Reset() {
+            throw new NotImplementedException();
+        }
+    }
+}
